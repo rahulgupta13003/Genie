@@ -162,25 +162,27 @@ export const codeAgentFunction = inngest.createFunction(
       return `https://${host}`;
     });
 
-    await step.run("set-result", async() => {
+    await step.run("save-result", async() => {
       if(isError){
         return await prisma.message.create({
           data: {
+            projectId: event.data.projectId,
             content: "Someting went wrong. Please try again with a different prompt.",
             role: "ASSISTANT",
-            type: "ERROr",
+            type: "ERROR",
           },
         });
       }
 
       return await prisma.message.create({
         data: {
+          projectId: event.data.projectId,  
           content: result.state.data.summary || "",
           role: "ASSISTANT",
           type: "RESULT",
           fragment: {
             create: {
-              sandboxid: crypto.randomUUID(),
+            sandboxid: sandboxId,
             sandboxUrl: sandboxUrl,
             title: "Fragment",
             files: result.state.data.files || {},
