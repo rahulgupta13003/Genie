@@ -124,14 +124,21 @@ export const codeAgentFunction = inngest.createFunction(
       ],
       lifecycle: {
         onResponse: async({result, network}) => {
-          const lastAssistantMessageText =
-            lastAssistantTextMessageContent(result);
-            if(lastAssistantMessageText && network){
-              if(lastAssistantMessageText.includes("<task_summary>")){
-                network.state.data.summary = lastAssistantMessageText;
-              }
+          const lastAssistantMessageText = lastAssistantTextMessageContent(result);
+
+          if (lastAssistantMessageText && network) {
+            // Try to extract inner text of <task_summary>...</task_summary> (case-insensitive)
+            const re = /<task_summary>([\s\S]*?)<\/task_summary>/i;
+            const m = lastAssistantMessageText.match(re);
+            if (m && m[1]) {
+              network.state.data.summary = m[1].trim();
+            } else if (lastAssistantMessageText.includes("<task_summary>") && !m) {
+              // If tag exists but didn't match (weird formatting), store raw as a fallback
+              network.state.data.summary = lastAssistantMessageText;
             }
-            return result;
+          }
+
+          return result;
         },
       }
     });
@@ -152,9 +159,10 @@ export const codeAgentFunction = inngest.createFunction(
 
     const result = await network.run(event.data.value);
 
-    const isError =
-     result.state.data.summary ||
-     Object.keys(result.state.data.files || {}).length === 0;
+  // Treat as an error only when there is neither a meaningful summary nor any files.
+  const hasSummary = !!(result?.state?.data?.summary);
+  const hasFiles = Object.keys(result?.state?.data?.files || {}).length > 0;
+  const isError = !(hasSummary || hasFiles);
 
     const sandboxUrl =await step.run("get-sandbox-url", async () => {
       const sandbox = await getSandbox(sandboxId);
@@ -163,11 +171,11 @@ export const codeAgentFunction = inngest.createFunction(
     });
 
     await step.run("save-result", async() => {
-      if(isError){
+      if (isError) {
         return await prisma.message.create({
           data: {
             projectId: event.data.projectId,
-            content: "Someting went wrong. Please try again with a different prompt.",
+            content: "Something went wrong. Please try again with a different prompt.",
             role: "ASSISTANT",
             type: "ERROR",
           },
@@ -198,6 +206,7 @@ export const codeAgentFunction = inngest.createFunction(
       title:"Fragment",
       files:result.state.data.files,
       summary: result.state.data.summary,
+
     };
   },
 );
