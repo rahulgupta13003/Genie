@@ -18,6 +18,7 @@ interface Props{
     }: Props) => {
     const trpc = useTRPC();
     const buttomRef = useRef<HTMLDivElement>(null);
+    const lastAssistantMessageIdRef = useRef<string | null>(null);
     const { data: messages } = useSuspenseQuery(
         trpc.messages.getMany.queryOptions({
             projectId: projectId,
@@ -25,13 +26,19 @@ interface Props{
             //Temporary fix for messages not updating after new message is added
             refetchInterval: 3000,
         }));
-    // TODO 
-    // useEffect(() => {
-    //     const lastAssistantMessageWithFragment = messages?.findLast((message) => message.role === "ASSISTANT" && !!message.fragment);
-    //     if (lastAssistantMessageWithFragment) {
-    //         setActiveFragment?.(lastAssistantMessageWithFragment.fragment);
-    //     }
-    // }, [messages, setActiveFragment]);
+    
+    useEffect(() => {
+        const lastAssistantMessage = [...(messages || [])].reverse().find((message) => message.role === "ASSISTANT");
+
+        if(
+            lastAssistantMessage?.fragment &&
+            lastAssistantMessage.id !== lastAssistantMessageIdRef.current 
+        ){
+            setActiveFragment?.(lastAssistantMessage.fragment);
+            lastAssistantMessageIdRef.current = lastAssistantMessage.id;
+
+        }
+    }, [messages, setActiveFragment]);
 
     useEffect(() => {
         buttomRef.current?.scrollIntoView();
