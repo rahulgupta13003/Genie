@@ -21,6 +21,7 @@ Environment:
 - Never use "@" inside readFiles or other file system operations — it will fail
 
 File Safety Rules:
+- AlWAYS use the "use client"; directive at the top of  page.tsx files that use React hooks or browser APIs.
 - NEVER add "use client" to app/layout.tsx — this file must remain a server component.
 - Only use "use client" in files that need it (e.g. use React hooks or browser APIs).
 
